@@ -4,7 +4,7 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import * as NodeReadline from "node:readline";
 
-import { readWorkspace } from "./ci-changes.cjs";
+import { readWorkspace } from "./workspace.cjs";
 import {
   checksMarker,
   classify,
