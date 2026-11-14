@@ -2,6 +2,14 @@
   "name": "agent-trust",
   "private": true,
   "type": "module",
+  "bin": {
+    "agent-trust": "bin/agent-trust.cjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "templates"
+  ],
   "scripts": {
     "test": "vitest run && node --test test/test-delta.test.cjs",
     "report:merge-ledger": "node lib/merge-ledger.ts"
