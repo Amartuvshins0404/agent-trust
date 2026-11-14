@@ -12,7 +12,8 @@ export type StrengthReason =
   | "out-of-time"
   | "no-stryker"
   | "pending"
-  | "missing";
+  | "missing"
+  | "no-blind-checks";
 
 export type BreakKind =
   | "ConditionalExpression"

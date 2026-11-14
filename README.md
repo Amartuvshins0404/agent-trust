@@ -9,6 +9,29 @@ It adds two checks to a GitHub repo:
 
 Both only report until you switch them on with the repository variables `BLIND_CHECKS_MODE=required` and `TEST_STRENGTH_MODE=required`. Nothing merges, closes or reverts because of a label.
 
+## Set it up
+
+From the root of the project's repo, with Node and a signed-in [GitHub CLI](https://cli.github.com):
+
+```sh
+npx -y github:Amartuvshins0404/agent-trust#v0 setup
+```
+
+It looks at the project and writes only what it needs:
+
+- `.github/workflows/merge-lane.yml`, always.
+- `.github/workflows/blind-checks.yml`, when the project tests with Vitest. A project with Jest, another runner, bun, no tests, or no `package.json` gets lane labels only, and the command says why.
+- `.github/agent-trust.json`, only when the default install and test commands are wrong for the project, such as with pnpm or Yarn.
+
+It makes the `lane:*` and `strength:*` labels with `gh`. It never sets `BLIND_CHECKS_MODE` or `TEST_STRENGTH_MODE`, so both bots only report. It does not commit, push or open a pull request. Commit the files, open one pull request into the default branch and merge it. The lane bot judges the pull requests after that one.
+
+Running it again changes nothing. It never overwrites a file it did not write: if a workflow with one of the two names is someone else's, it stops and writes nothing.
+
+- `setup --protect` adds a ruleset named `agent-trust` that requires the checks on the default branch. Run it after the setup pull request merged. A private repo on GitHub's free plan cannot require checks; the command says so and changes nothing.
+- `setup --remove` deletes the files it wrote and the `agent-trust` ruleset, and leaves the labels.
+
+Agents can follow [skills/agent-trust-setup/SKILL.md](skills/agent-trust-setup/SKILL.md).
+
 ## What a project adds
 
 1. `.github/workflows/merge-lane.yml`, copied from [templates/merge-lane.yml](templates/merge-lane.yml).
@@ -41,7 +64,6 @@ Editing the settings file, or anything under `.github/workflows/` or `.github/ac
 ## What does not work yet
 
 - Only Vitest. Jest is the next step: one more entry in [lib/runners.cjs](lib/runners.cjs).
-- No setup command. You copy the files by hand.
 - Not tried on a second project yet. The lane bot's reusable workflow has not run on a real pull request outside the unit tests.
 - Browser tests are not run by test strength, and nothing sets up browsers for you. Put that in your install command.
 - The tool repo must stay public: the workflows fetch it without a token.
