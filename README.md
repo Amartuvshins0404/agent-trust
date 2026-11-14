@@ -20,8 +20,8 @@ npx -y github:Amartuvshins0404/agent-trust#v0 setup
 It looks at the project and writes only what it needs:
 
 - `.github/workflows/merge-lane.yml`, always.
-- `.github/workflows/blind-checks.yml`, when the project tests with Vitest. A project with Jest, another runner, bun, no tests, or no `package.json` gets lane labels only, and the command says why.
-- `.github/agent-trust.json`, only when the default install and test commands are wrong for the project, such as with pnpm or Yarn.
+- `.github/workflows/blind-checks.yml`, when the project tests with Vitest or Jest. A project with another runner, bun, no tests, or no `package.json` gets lane labels only, and the command says why.
+- `.github/agent-trust.json`, only when the defaults are wrong for the project, such as with Jest, pnpm or Yarn.
 
 It makes the `lane:*` and `strength:*` labels with `gh`. It never sets `BLIND_CHECKS_MODE` or `TEST_STRENGTH_MODE`, so both bots only report. It does not commit, push or open a pull request. Commit the files, open one pull request into the default branch and merge it. The lane bot judges the pull requests after that one.
 
@@ -36,9 +36,9 @@ Agents can follow [skills/agent-trust-setup/SKILL.md](skills/agent-trust-setup/S
 
 1. `.github/workflows/merge-lane.yml`, copied from [templates/merge-lane.yml](templates/merge-lane.yml).
 2. `.github/workflows/blind-checks.yml`, copied from [templates/blind-checks.yml](templates/blind-checks.yml).
-3. Optional: `.github/agent-trust.json`, copied from [templates/agent-trust.json](templates/agent-trust.json) and edited. Without it, the defaults apply: `npm ci` to install, `npx vitest run` to test, and the default path rules.
+3. Optional: `.github/agent-trust.json`, copied from [templates/agent-trust.json](templates/agent-trust.json) and edited. Without it, the defaults apply: Vitest, `npm ci` to install, `npx vitest run` to test, and the default path rules. A Jest project sets `"runner": "jest"`, which tests with `npx jest`.
 
-Keep the two workflow file names: other tools look for `.github/workflows/blind-checks.yml`. For test strength, add `@stryker-mutator/core` and `@stryker-mutator/vitest-runner` as dev dependencies.
+Keep the two workflow file names: other tools look for `.github/workflows/blind-checks.yml`. For test strength on a Vitest project, add `@stryker-mutator/core` and `@stryker-mutator/vitest-runner` as dev dependencies. Test strength does not measure Jest projects.
 
 Each pull request then needs a `## Request` section in its body and a first commit that adds only tests and carries a `Blind-checks: <note>` trailer, or an empty first commit that says `Blind-checks: none, <reason>`. A fix also needs a `Repairs:` line. [docs/merge-lanes.md](docs/merge-lanes.md) has the full contract.
 
@@ -63,7 +63,7 @@ Editing the settings file, or anything under `.github/workflows/` or `.github/ac
 
 ## What does not work yet
 
-- Only Vitest. Jest is the next step: one more entry in [lib/runners.cjs](lib/runners.cjs).
+- Test strength measures Vitest projects only. On a Jest project it says "not measured". Stryker's Jest runner needs its own way to narrow the run to the chosen tests, and presets such as `jest-expo` need their test environment wrapped by Stryker; neither has been built or tried.
 - Tried on one more project so far: a private npm and Vitest repo, set up with `setup`. The lane bot labeled and locked a pull request, Blind Checks installed, ran, judged it proven, and the lane bot ran again after it. Test strength said not measured there, since that project has no Stryker; a real strength measurement has only run in t3code.
 - `setup --protect` has only been refused (a private repo on the free plan). Creating the ruleset has not been tried on a real repo.
 - Browser tests are not run by test strength, and nothing sets up browsers for you. Put that in your install command.

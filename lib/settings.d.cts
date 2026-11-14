@@ -23,7 +23,7 @@ export interface Settings {
   readonly node: string;
   readonly install: string;
   readonly test: string;
-  readonly runner: "vitest";
+  readonly runner: "vitest" | "jest";
   readonly allowedSuppressions: ReadonlyArray<{
     readonly line: RegExp;
     readonly files?: ReadonlyArray<RegExp>;
@@ -43,11 +43,11 @@ export const DEFAULTS: {
   readonly baseBranch: null;
   readonly node: string;
   readonly install: string;
-  readonly test: string;
   readonly runner: "vitest";
   readonly allowedSuppressions: ReadonlyArray<never>;
   readonly rules: ReadonlyArray<RawRule>;
 };
+export function defaultTest(runner: Settings["runner"]): string;
 export function compilePattern(text: string): RegExp;
 export function parseSettings(text: string): Settings;
 export function readSettings(file: string | null): SettingsRead;
