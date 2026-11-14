@@ -73,10 +73,14 @@ jobs:
         run: git checkout -q --detach "$PROOF_BASE"
 
       - name: Set up Node
-        if: steps.plan.outputs.run == 'true'
+        if: steps.plan.outputs.run == 'true' && steps.plan.outputs.setup != 'true'
         uses: actions/setup-node@v5
         with:
           node-version: ${{ steps.plan.outputs.node }}
+
+      - name: Run the project's setup action from the base code
+        if: steps.plan.outputs.run == 'true' && steps.plan.outputs.setup == 'true'
+        uses: ./.github/actions/agent-trust-setup
 
       - name: Install on the base code
         if: steps.plan.outputs.run == 'true'

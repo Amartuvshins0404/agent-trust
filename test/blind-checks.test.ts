@@ -1588,6 +1588,43 @@ describe("blind checks proof: the commands the job runs", () => {
     }
   });
 
+  it("the plan command runs the project's own setup action only when the base code has one", () => {
+    const dir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "blind-checks-"));
+    const output = NodePath.join(dir, "output.txt");
+    const { run, commitFiles } = gitIn(dir);
+    const setupOn = (base: string, head: string) => {
+      NodeFS.writeFileSync(output, "");
+      NodeChildProcess.execFileSync(
+        "node",
+        [script, "plan", "--base", base, "--head", head, "--dir", NodePath.join(dir, "..", `${NodePath.basename(dir)}-out`)]
+          .concat(["--settings", NodePath.join(dir, "none.json"), "--cwd", dir]),
+        { encoding: "utf8", env: { ...jobEnv, GITHUB_OUTPUT: output } },
+      );
+      return NodeFS.readFileSync(output, "utf8")
+        .split("\n")
+        .find((line) => line.startsWith("setup="));
+    };
+    try {
+      run(["init", "-q", "-b", "main"]);
+      const without = commitFiles("feat: start", { "src/slug.js": "export const slug = (text) => text;\n" });
+      const withAction = commitFiles("ci: own setup", {
+        ".github/actions/agent-trust-setup/action.yml": "runs:\n  using: composite\n  steps: []\n",
+      });
+      run(["checkout", "-q", "-b", "feat/later", without]);
+      const addedByPullRequest = commitFiles("ci: own setup", {
+        ".github/actions/agent-trust-setup/action.yml": "runs:\n  using: composite\n  steps: []\n",
+      });
+      expect({
+        withAction: setupOn(withAction, withAction),
+        without: setupOn(without, without),
+        addedByPullRequest: setupOn(without, addedByPullRequest),
+      }).toEqual({ withAction: "setup=true", without: "setup=false", addedByPullRequest: "setup=false" });
+    } finally {
+      NodeFS.rmSync(dir, { recursive: true, force: true });
+      NodeFS.rmSync(NodePath.join(dir, "..", `${NodePath.basename(dir)}-out`), { recursive: true, force: true });
+    }
+  });
+
   it("pinned: the judge command exits 1 only when BLIND_CHECKS_MODE is required and the proof does not hold", () => {
     const dir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "blind-checks-"));
     const out = NodePath.join(dir, "out");
