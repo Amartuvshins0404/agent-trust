@@ -1,0 +1,14 @@
+name: Blind Checks
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    permissions:
+      contents: read
+    uses: Amartuvshins0404/agent-trust/.github/workflows/blind-checks.yml@v0

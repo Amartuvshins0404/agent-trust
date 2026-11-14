@@ -424,11 +424,12 @@ describe("test strength: not measured", () => {
         reports: [strongReport],
         outOfTime: { tried: 1, total: 2 },
       }),
+      judgeStrength({ plan, testsPassed: true, reports: [strongReport], noStryker: true }),
     ];
-    expect(new Set(verdicts.map((verdict) => verdict.reason)).size).toBe(7);
+    expect(new Set(verdicts.map((verdict) => verdict.reason)).size).toBe(8);
     const texts = verdicts.map((verdict) => renderStrength(verdict, { required: false }));
     for (const text of texts) expect(text).toContain("not measured");
-    expect(new Set(texts).size).toBe(7);
+    expect(new Set(texts).size).toBe(8);
   });
 });
 
@@ -592,6 +593,12 @@ describe("test strength: the switch, the lane and the labels", () => {
     reports: [strongReport],
     outOfTime: { tried: 3, total: 9 },
   });
+  const noStryker = judgeStrength({
+    plan,
+    testsPassed: true,
+    reports: [strongReport],
+    noStryker: true,
+  });
   const pending: StrengthVerdict = {
     result: "not measured",
     reason: "pending",
@@ -607,6 +614,7 @@ describe("test strength: the switch, the lane and the labels", () => {
     { name: "strong", verdict: strong, required: true, red: false },
     { name: "tests did not pass", verdict: testsFailed, required: true, red: true },
     { name: "out of time", verdict: outOfTime, required: true, red: true },
+    { name: "Stryker not installed", verdict: noStryker, required: true, red: true },
     { name: "no test needed", verdict: noneNeeded, required: true, red: false },
     { name: "Blind checks has not finished", verdict: pending, required: true, red: true },
     { name: "weak", verdict: weak, required: false, red: false },
