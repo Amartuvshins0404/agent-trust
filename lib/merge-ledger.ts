@@ -4,7 +4,7 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import * as NodeReadline from "node:readline";
 
-import { readWorkspace } from "../.github/scripts/ci-changes.cjs";
+import { readWorkspace } from "./ci-changes.cjs";
 import {
   checksMarker,
   classify,
@@ -16,7 +16,7 @@ import {
   type ChecksState,
   type Lane,
   type RepairsLine,
-} from "../.github/scripts/merge-lane.cjs";
+} from "./merge-lane.cjs";
 
 const HELP = `Usage:
   vp run report:merge-ledger [--branch <ref>] [--since <date>] [--until <date>]

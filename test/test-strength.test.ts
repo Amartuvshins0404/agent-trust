@@ -3,9 +3,9 @@ import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vitest";
 
-import { parseGitDiff, type ChangedFile } from "../.github/scripts/merge-lane.cjs";
+import { parseGitDiff, type ChangedFile } from "../lib/merge-lane.cjs";
 import {
   BREAK_WORDING,
   isStrengthRequired,
@@ -17,7 +17,7 @@ import {
   strengthReasons,
   type StrengthVerdict,
   type StrykerReport,
-} from "../.github/scripts/test-strength.cjs";
+} from "../lib/test-strength.cjs";
 import rootPackage from "../package.json" with { type: "json" };
 import weakReport from "./fixtures/test-strength/weak-report.json" with { type: "json" };
 

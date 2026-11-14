@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { countTestDelta, render } = require("./test-delta.cjs");
+const { countTestDelta, render } = require("../lib/test-delta.cjs");
 
 const diff = `diff --git a/apps/web/src/Panel.browser.test.tsx b/apps/web/src/Panel.browser.test.tsx
 new file mode 100644

@@ -1,10 +1,12 @@
+import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 import { it as effectIt } from "@effect/vitest";
 import * as Arbitrary from "effect/Arbitrary";
 import * as Schema from "effect/Schema";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { judge, type TestResult } from "../.github/scripts/blind-checks.cjs";
-import { readWorkspace } from "../.github/scripts/ci-changes.cjs";
+import { judge, type TestResult } from "../lib/blind-checks.cjs";
 import {
   LANES,
   checkOutcome,
@@ -31,15 +33,76 @@ import {
   type LaneReason,
   type LaneResult,
   type ResolvedRepair,
-} from "../.github/scripts/merge-lane.cjs";
+} from "../lib/merge-lane.cjs";
 import {
   renderStrength,
   strengthReasons,
   type StrengthVerdict,
-} from "../.github/scripts/test-strength.cjs";
-import { render as renderSizeComment } from "../.github/scripts/test-delta.cjs";
+} from "../lib/test-strength.cjs";
+import { render as renderSizeComment } from "../lib/test-delta.cjs";
 
-const packageDirs = readWorkspace().map((pkg) => pkg.dir);
+const packageDirs = [
+  "apps/desktop",
+  "apps/marketing",
+  "apps/mobile",
+  "apps/server",
+  "apps/web",
+  "evals",
+  "infra/auth",
+  "infra/relay",
+  "infra/task-cache",
+  "oxlint-plugin-t3code",
+  "packages/client-runtime",
+  "packages/contracts",
+  "packages/effect-acp",
+  "packages/effect-codex-app-server",
+  "packages/provider-acp-registry",
+  "packages/provider-acp",
+  "packages/provider-core",
+  "packages/provider-cursor",
+  "packages/provider-fx",
+  "packages/provider-grok",
+  "packages/provider-kiro",
+  "packages/provider-muse",
+  "packages/provider-opencode",
+  "packages/provider-pi",
+  "packages/provider-testing",
+  "packages/secret-provider-core",
+  "packages/secret-provider-definitions",
+  "packages/secret-provider-onepassword",
+  "packages/shared",
+  "packages/source-control-azure-devops",
+  "packages/source-control-bitbucket",
+  "packages/source-control-core",
+  "packages/source-control-cursor-origin",
+  "packages/source-control-definitions",
+  "packages/source-control-forgejo",
+  "packages/source-control-gitcafe",
+  "packages/source-control-github",
+  "packages/source-control-gitlab",
+  "packages/source-control-testing",
+  "packages/ssh",
+  "packages/tailscale",
+  "scripts",
+];
+
+const startDir = process.cwd();
+const workspace = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "merge-lane-workspace-"));
+beforeAll(() => {
+  NodeFS.writeFileSync(
+    NodePath.join(workspace, "pnpm-workspace.yaml"),
+    `packages:\n${packageDirs.map((dir) => `  - ${dir}\n`).join("")}`,
+  );
+  for (const dir of packageDirs) {
+    NodeFS.mkdirSync(NodePath.join(workspace, dir), { recursive: true });
+    NodeFS.writeFileSync(NodePath.join(workspace, dir, "package.json"), `{"name":"${dir}"}\n`);
+  }
+  process.chdir(workspace);
+});
+afterAll(() => {
+  process.chdir(startDir);
+  NodeFS.rmSync(workspace, { recursive: true, force: true });
+});
 
 const modified = (path: string, body: string) =>
   `diff --git a/${path} b/${path}\nindex 1111111..2222222 100644\n--- a/${path}\n+++ b/${path}\n${body}`;

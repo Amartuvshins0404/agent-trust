@@ -1,0 +1,19 @@
+{
+  "name": "agent-trust",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run && node --test test/test-delta.test.cjs",
+    "report:merge-ledger": "node lib/merge-ledger.ts"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.1.2",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
+    "effect": "4.1.2",
+    "vitest": "5.1.0"
+  },
+  "engines": {
+    "node": ">=24.2"
+  }
+}

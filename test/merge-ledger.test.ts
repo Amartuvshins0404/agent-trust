@@ -3,9 +3,9 @@ import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vitest";
 
-import { buildLedger, scoreLedger, writerModel } from "./merge-ledger.ts";
+import { buildLedger, scoreLedger, writerModel } from "../lib/merge-ledger.ts";
 import { it as effectIt } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import {
@@ -15,7 +15,7 @@ import {
   type Disagreement,
   type Escape,
   type Link,
-} from "./merge-ledger.ts";
+} from "../lib/merge-ledger.ts";
 
 const DAY = 86_400;
 const START = Date.parse("2026-01-01T12:00:00Z") / 1000;

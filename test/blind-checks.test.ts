@@ -6,7 +6,7 @@ import * as NodePath from "node:path";
 import { it as effectIt } from "@effect/vitest";
 import * as Arbitrary from "effect/Arbitrary";
 import * as Schema from "effect/Schema";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vitest";
 
 import {
   judge,
@@ -14,8 +14,8 @@ import {
   pullRequestCommits,
   type PlannedFile,
   type TestResult,
-} from "../.github/scripts/blind-checks.cjs";
-import type { ChangedFile } from "../.github/scripts/merge-lane.cjs";
+} from "../lib/blind-checks.cjs";
+import type { ChangedFile } from "../lib/merge-lane.cjs";
 
 const base = "b".repeat(40);
 const slugTest = "apps/web/src/lib/slug.test.ts";
@@ -1242,7 +1242,7 @@ describe("blind checks proof: a file must run, load and pass with the code", () 
 });
 
 describe("blind checks proof: the commands the job runs", () => {
-  const script = NodePath.join(import.meta.dirname, "../.github/scripts/blind-checks.cjs");
+  const script = NodePath.join(import.meta.dirname, "../lib/blind-checks.cjs");
   const jobEnv = Object.fromEntries(
     Object.entries(process.env).filter(
       ([key]) => !key.startsWith("GITHUB_") && key !== "BLIND_CHECKS_MODE",
