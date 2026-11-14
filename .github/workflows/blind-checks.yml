@@ -38,9 +38,11 @@ jobs:
         shell: bash
         env:
           GIT_TERMINAL_PROMPT: "0"
+          REPO_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git init -q .
+          git config "http.${GITHUB_SERVER_URL}/.extraheader" "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$REPO_TOKEN" | base64 -w0)"
           git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
           git fetch -q --no-tags --filter=tree:0 origin "$HEAD_SHA" "+refs/heads/$BASE_REF:refs/remotes/origin/base"
           tip="$(git rev-parse refs/remotes/origin/base)"

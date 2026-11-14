@@ -29,8 +29,11 @@ jobs:
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref || github.event.workflow_run.pull_requests[0].base.ref || github.event.repository.default_branch }}
           GIT_TERMINAL_PROMPT: "0"
+          REPO_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.${GITHUB_SERVER_URL}/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$REPO_TOKEN" | base64 -w0)"
           git init -q .
           git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
           git fetch -q --no-tags --depth=1 --filter=blob:none origin "refs/heads/$BASE_REF"
