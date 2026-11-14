@@ -11,6 +11,7 @@ export type StrengthReason =
   | "no-breaks"
   | "out-of-time"
   | "no-stryker"
+  | "no-runner"
   | "pending"
   | "missing"
   | "no-blind-checks";
@@ -110,6 +111,7 @@ export function judgeStrength(input: {
   readonly reports?: ReadonlyArray<StrykerReport>;
   readonly outOfTime?: { readonly tried: number; readonly total: number };
   readonly noStryker?: boolean;
+  readonly noRunner?: boolean;
 }): StrengthVerdict;
 
 export function renderStrength(

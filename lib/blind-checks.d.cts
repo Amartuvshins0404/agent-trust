@@ -1,4 +1,5 @@
 import type { ChangedFile } from "./merge-lane.cjs";
+import type { Settings } from "./settings.cjs";
 
 export interface PlannedFile {
   readonly file: string;
@@ -49,7 +50,7 @@ export function pullRequestCommits(
 ): Array<{ sha: string; message: string; files: Array<ChangedFile> }>;
 
 export function judge(
-  planned: { readonly files: ReadonlyArray<PlannedFile> },
+  planned: { readonly runner: Settings["runner"]; readonly files: ReadonlyArray<PlannedFile> },
   runs: {
     readonly baseline: ReadonlyMap<string, TestResult>;
     readonly before: ReadonlyMap<string, TestResult>;

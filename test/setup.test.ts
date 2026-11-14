@@ -25,7 +25,7 @@ const projects: ReadonlyArray<{
   readonly name: string;
   readonly files: Files;
   readonly writes: ReadonlyArray<string>;
-  readonly settings?: { readonly install: string; readonly test: string };
+  readonly settings?: { readonly runner?: string; readonly install: string; readonly test: string };
   readonly why?: RegExp;
 }> = [
   {
@@ -59,13 +59,64 @@ const projects: ReadonlyArray<{
     settings: { install: "corepack enable && yarn install --immutable", test: "yarn vitest run" },
   },
   {
-    name: "Jest",
+    name: "npm and Jest",
     files: {
       "package.json": manifest({ scripts: { test: "jest" }, devDependencies: { jest: "30.0.0" } }),
       "package-lock.json": "{}",
     },
+    writes: [LANE, PROOF, SETTINGS],
+    settings: { runner: "jest", install: "npm ci", test: "npx jest" },
+  },
+  {
+    name: "only the jest-expo preset, with no test script",
+    files: {
+      "package.json": manifest({ devDependencies: { "jest-expo": "58.0.0" } }),
+      "package-lock.json": "{}",
+    },
+    writes: [LANE, PROOF, SETTINGS],
+    settings: { runner: "jest", install: "npm ci", test: "npx jest" },
+  },
+  {
+    name: "pnpm and ts-jest with no test script",
+    files: {
+      "package.json": manifest({ devDependencies: { "ts-jest": "29.4.0" } }),
+      "pnpm-lock.yaml": "lockfileVersion: '9.0'\n",
+    },
+    writes: [LANE, PROOF, SETTINGS],
+    settings: {
+      runner: "jest",
+      install: "corepack enable && pnpm install --frozen-lockfile",
+      test: "pnpm exec jest",
+    },
+  },
+  {
+    name: "only a jest.config.ts",
+    files: { "package.json": manifest({}), "yarn.lock": "", "jest.config.ts": "export default {};\n" },
+    writes: [LANE, PROOF, SETTINGS],
+    settings: { runner: "jest", install: "corepack enable && yarn install --frozen-lockfile", test: "yarn jest" },
+  },
+  {
+    name: "only a jest key in package.json",
+    files: { "package.json": manifest({ jest: { testEnvironment: "node" } }), "package-lock.json": "{}" },
+    writes: [LANE, PROOF, SETTINGS],
+    settings: { runner: "jest", install: "npm ci", test: "npx jest" },
+  },
+  {
+    name: "Vitest with jest-dom matchers",
+    files: {
+      "package.json": manifest({
+        scripts: { test: "vitest run" },
+        devDependencies: { vitest: "5.0.0", "@testing-library/jest-dom": "6.0.0" },
+      }),
+      "package-lock.json": "{}",
+    },
+    writes: [LANE, PROOF],
+  },
+  {
+    name: "a test script that is neither Vitest nor Jest",
+    files: { "package.json": manifest({ scripts: { test: "mocha" } }), "package-lock.json": "{}" },
     writes: [LANE],
-    why: /not supported for Jest/,
+    why: /not supported for the test script "mocha"/,
   },
   {
     name: "bun and Vitest",
@@ -100,7 +151,10 @@ describe("setup writes only the files a project needs", () => {
     }
     if (row.settings) {
       const settings = parseSettings(after[SETTINGS] ?? "");
-      expect({ install: settings.install, test: settings.test }).toEqual(row.settings);
+      expect({ runner: settings.runner, install: settings.install, test: settings.test }).toEqual({
+        runner: "vitest",
+        ...row.settings,
+      });
     }
     expect(plan.proof.why).toEqual(row.why ? expect.stringMatching(row.why) : undefined);
   });

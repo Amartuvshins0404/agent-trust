@@ -119,6 +119,14 @@ describe("settings: custom rules", () => {
     });
   });
 
+  it("the default test command follows the runner, and a test command the file gives is kept", () => {
+    expect([
+      settingsWith({}).test,
+      settingsWith({ runner: "jest" }).test,
+      settingsWith({ runner: "jest", test: "yarn jest --selectProjects app" }).test,
+    ]).toEqual(["npx vitest run", "npx jest", "yarn jest --selectProjects app"]);
+  });
+
   it("an inPackage rule covers code in a workspace package from package.json workspaces", () => {
     const dir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "agent-trust-workspace-"));
     try {
@@ -176,7 +184,7 @@ describe("settings: a broken settings file is red, never ignored", () => {
     ] })],
     ["a rule that takes the setup rule's id", JSON.stringify({ rules: [{ id: SETUP_RULE.id, lane: "green", why: "x", paths: [".github/**"] }] })],
     ["an empty rule list", JSON.stringify({ rules: [] })],
-    ["a runner it does not know yet", JSON.stringify({ runner: "jest" })],
+    ["a runner it does not know yet", JSON.stringify({ runner: "mocha" })],
     ["a test command on two lines", JSON.stringify({ test: "npx vitest run\nrm -rf /" })],
   ])("%s", (_name, text) => {
     const { settings, error } = read(text);

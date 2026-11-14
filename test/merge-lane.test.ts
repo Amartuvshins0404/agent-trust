@@ -1303,7 +1303,7 @@ describe("blind checks proof", () => {
     const report = (result: TestResult | null) =>
       new Map(result ? [[file.file, result] as const] : []);
     expect(
-      judge({ files: [file] }, { baseline: oldRuns, before: report(before), after: report(after) })
+      judge({ runner: "vitest", files: [file] }, { baseline: oldRuns, before: report(before), after: report(after) })
         .ok,
     ).toBe(ok);
   });
@@ -1328,7 +1328,7 @@ describe("blind checks proof", () => {
       const report = (pick: (entry: (typeof cases)[number]) => TestResult | null) =>
         new Map(cases.flatMap((entry) => (pick(entry) ? [[entry.file.file, pick(entry)!]] : [])));
       const verdict = judge(
-        { files: cases.map((entry) => entry.file) },
+        { runner: "vitest", files: cases.map((entry) => entry.file) },
         {
           baseline: new Map(
             cases.flatMap((entry) =>

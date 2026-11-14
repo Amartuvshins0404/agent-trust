@@ -109,7 +109,7 @@ const verdictOf = (
   baseline: ReadonlyArray<TestResult>,
   before: ReadonlyArray<TestResult>,
   after: ReadonlyArray<TestResult>,
-) => judge({ files }, { baseline: byFile(baseline), before: byFile(before), after: byFile(after) });
+) => judge({ runner: "vitest", files }, { baseline: byFile(baseline), before: byFile(before), after: byFile(after) });
 const problemsOf = (verdict: ReturnType<typeof judge>) =>
   verdict.rows.flatMap((row) => row.problems).join("\n");
 const withoutOf = (verdict: ReturnType<typeof judge>, file: string) =>
@@ -1223,7 +1223,7 @@ describe("blind checks proof: a file must run, load and pass with the code", () 
       ]);
     const judged = (before: ReturnType<typeof run>) =>
       judge(
-        { files: [addedSlug] },
+        { runner: "vitest", files: [addedSlug] },
         { baseline: byFile([]), before, after: run(["slugs"], "keeps letters", "passed") },
       );
     expect(judged(run(["slugs"], "keeps letters", "failed")).ok).toBe(true);
@@ -1388,6 +1388,7 @@ describe("blind checks proof: the commands the job runs", () => {
     try {
       write("plan.json", {
         run: true,
+        runner: "vitest",
         base,
         files: [
           { file: titleFile, baseFile: titleFile },
@@ -1433,6 +1434,132 @@ describe("blind checks proof: the commands the job runs", () => {
       ]);
     } finally {
       NodeFS.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("by results, a real Jest run is judged per file: nested and table tests, a missing module, an empty file, a new snapshot and a broken file", () => {
+    const repo = NodeFS.realpathSync(NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "blind-checks-jest-")));
+    const out = NodePath.join(repo, ".proof");
+    const settings = NodePath.join(out, "agent-trust.json");
+    const jest = NodePath.join(import.meta.dirname, "../node_modules/jest/bin/jest.js");
+    const write = (files: Record<string, string>) => {
+      for (const [file, text] of Object.entries(files)) {
+        NodeFS.mkdirSync(NodePath.dirname(NodePath.join(repo, file)), { recursive: true });
+        NodeFS.writeFileSync(NodePath.join(repo, file), text);
+      }
+    };
+    const runTests = (files: ReadonlyArray<string>, report: string) => {
+      NodeFS.writeFileSync(NodePath.join(out, `${report}.txt`), `${files.join("\n")}\n`);
+      NodeChildProcess.execFileSync(
+        "node",
+        [script, "test", "--settings", settings, "--files", NodePath.join(out, `${report}.txt`)]
+          .concat(["--out", NodePath.join(out, `${report}.json`), "--cwd", repo]),
+        { encoding: "utf8", stdio: "pipe", env: { PATH: process.env.PATH, HOME: repo } },
+      );
+    };
+    const cart = "src/cart.test.js";
+    const coupon = "src/coupons/[code].test.js";
+    const rules = "src/rules.test.js";
+    const receipt = "src/receipt.test.js";
+    const broken = "src/broken.test.js";
+    const checked = [cart, coupon, rules, receipt, broken];
+    try {
+      NodeFS.mkdirSync(out);
+      NodeFS.writeFileSync(settings, JSON.stringify({ runner: "jest", test: `node ${jest}` }));
+      write({
+        "package.json": '{ "name": "shop", "private": true }\n',
+        "src/cart.js": "exports.total = (items) => items.reduce((sum, item) => sum + item.price, 0);\n",
+        "src/rules.js": "exports.rules = [];\n",
+        [cart]: [
+          'const { total } = require("./cart");',
+          'describe("total", () => {',
+          '  it("adds prices", () => expect(total([{ price: 2 }, { price: 3 }])).toBe(5));',
+          "});",
+          "",
+        ].join("\n"),
+      });
+      runTests([cart], "baseline");
+      write({
+        [cart]: [
+          'const { total } = require("./cart");',
+          'describe("total", () => {',
+          '  it("adds prices", () => expect(total([{ price: 2 }, { price: 3 }])).toBe(5));',
+          '  describe("with quantities", () => {',
+          '    it.each([[2, 3, 6], [3, 2, 6]])("%i of %i costs %i", (quantity, price, sum) =>',
+          "      expect(total([{ price, quantity }])).toBe(sum));",
+          "  });",
+          "});",
+          "",
+        ].join("\n"),
+        [coupon]: 'const { apply } = require("../coupon");\nit("takes ten off", () => expect(apply(100, "TEN")).toBe(90));\n',
+        [rules]: 'const { rules } = require("./rules");\nfor (const rule of rules) it(rule.name, () => expect(rule.ok(1)).toBe(true));\n',
+        [receipt]: 'const { receipt } = require("./cart");\nit("prints a receipt", () => expect(receipt([{ price: 2 }])).toMatchSnapshot());\n',
+        [broken]: 'it("never compiles", () => {\n',
+      });
+      runTests(checked, "before");
+      write({
+        "src/cart.js": [
+          "exports.total = (items) => items.reduce((sum, item) => sum + item.price * (item.quantity ?? 1), 0);",
+          "exports.receipt = (items) => `Total: ${exports.total(items)}`;",
+          "",
+        ].join("\n"),
+        "src/coupon.js": 'exports.apply = (sum, code) => (code === "TEN" ? sum - 10 : sum);\n',
+        "src/rules.js": 'exports.rules = [{ name: "no negative prices", ok: (price) => price >= 0 }];\n',
+      });
+      runTests(checked, "after");
+      NodeFS.writeFileSync(
+        NodePath.join(out, "plan.json"),
+        JSON.stringify({
+          run: true,
+          runner: "jest",
+          base,
+          files: checked.map((file) => ({ file, baseFile: file === cart ? cart : null })),
+          support: [],
+        }),
+      );
+      const summary = node(["judge", "--dir", out, "--cwd", repo]);
+      const row = (file: string) =>
+        summary
+          .split("\n")
+          .find((line) => line.startsWith(`| \`${file}\``))
+          ?.split(" | ")
+          .slice(1)
+          .map((cell) => cell.replace(/ \|$/, ""));
+      const problems = (file: string) =>
+        summary
+          .split("\n")
+          .filter((line) => line.startsWith(`- \`${file}\`: `))
+          .map((line) => line.slice(file.length + 6));
+      expect({
+        verdict: summary.split("\n")[0],
+        cart: [row(cart), problems(cart)],
+        coupon: [row(coupon), problems(coupon)],
+        rules: [row(rules), problems(rules)],
+        receipt: [row(receipt), problems(receipt)],
+        broken: row(broken)?.map((cell) => cell.replace(/: .*/, "")),
+        brokenProblems: problems(broken),
+        snapshots: NodeFS.existsSync(NodePath.join(repo, "src/__snapshots__")),
+      }).toEqual({
+        verdict: "### Blind checks: not proven",
+        cart: [["2 of 2 new tests failed", "3 of 3 passed"], []],
+        coupon: [
+          ["could not load: Cannot find module '../coupon' from 'src/coupons/[code].test.js'", "1 of 1 passed"],
+          [],
+        ],
+        rules: [
+          ["0 of 1 new tests failed", "1 of 1 passed"],
+          ['These new tests did not fail without the code: "no negative prices".', "Nothing in it failed without the code."],
+        ],
+        receipt: [
+          ["1 of 1 new tests failed", "0 of 1 passed"],
+          ['These tests did not pass with the code: "prints a receipt".'],
+        ],
+        broken: ["could not load", "could not load"],
+        brokenProblems: ["It cannot load with the code either, so the test setup is broken."],
+        snapshots: false,
+      });
+    } finally {
+      NodeFS.rmSync(repo, { recursive: true, force: true });
     }
   });
 
@@ -1483,6 +1610,7 @@ describe("blind checks proof: the commands the job runs", () => {
     try {
       write("plan.json", {
         run: true,
+        runner: "vitest",
         base,
         files: [{ file: slugFile, baseFile: null }],
         support: [],
