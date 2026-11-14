@@ -37,6 +37,7 @@ Agents can follow [skills/agent-trust-setup/SKILL.md](skills/agent-trust-setup/S
 1. `.github/workflows/merge-lane.yml`, copied from [templates/merge-lane.yml](templates/merge-lane.yml).
 2. `.github/workflows/blind-checks.yml`, copied from [templates/blind-checks.yml](templates/blind-checks.yml).
 3. Optional: `.github/agent-trust.json`, copied from [templates/agent-trust.json](templates/agent-trust.json) and edited. Without it, the defaults apply: Vitest, `npm ci` to install, `npx vitest run` to test, and the default path rules. A Jest project sets `"runner": "jest"`, which tests with `npx jest`.
+4. Optional: `.github/actions/agent-trust-setup/action.yml`, a composite action Blind Checks runs in place of setting up Node, for a project that needs its own toolchain or caches before installing.
 
 Keep the two workflow file names: other tools look for `.github/workflows/blind-checks.yml`. For test strength on a Vitest project, add `@stryker-mutator/core` and `@stryker-mutator/vitest-runner` as dev dependencies. Test strength does not measure Jest projects.
 

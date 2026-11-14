@@ -19,6 +19,8 @@ The settings file holds only what differs per project. Every key is optional.
 - `node`: the Node version Blind Checks installs. Default `24`.
 - `baseBranch`: the branch whose pull requests are judged. Default: the repository's default branch. Pull requests into any other branch are skipped.
 
+A project that needs more than Node before `install`, such as its own toolchain or caches, adds a composite action at `.github/actions/agent-trust-setup/action.yml`. When the base code has one, Blind Checks runs it from the base code in place of setting up Node, then runs `install` as usual. A pull request that adds or edits it is red under `agent-trust-setup`, and its version is used only once it is on the base branch.
+
 The rule `agent-trust-setup` is always on, whatever the settings say: a pull request that edits the settings file or anything under `.github/workflows/` or `.github/actions/` is red, because those decide what judges and runs on pull requests.
 
 A settings file that is not valid JSON, has an unknown key, or has a rule that is incomplete or does not compile is never ignored. The lane bot judges with the defaults and adds a red reason that quotes the error, and Blind Checks stops with that error.
