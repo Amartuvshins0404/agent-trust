@@ -2068,6 +2068,28 @@ describe("the Merge lane job fails the check only for a red lane on the pull req
   });
 });
 
+describe("a repository with only the lane bot", () => {
+  it("still labels the pull request and says test strength was not measured because Blind Checks is not set up", async () => {
+    const listed = [slugTest, slugSource];
+    const pr = lanePullRequest(listed);
+    const writes: Array<CommentWrite> = [];
+    const github = laneGithub(pr, [checks, code], [slugTest], listed, [], writes);
+    github.rest.actions.listWorkflowRuns = async () => {
+      throw Object.assign(new Error("Not Found"), { status: 404 });
+    };
+    const result = await syncPullRequest({
+      root: workspace,
+      github,
+      context: laneContext("pull_request_target", pr),
+      core: laneCore([]),
+    });
+    expect(result?.lane).toBe("amber");
+    expect(writes.map((write) => String(write.body)).join("\n")).toContain(
+      "This repository has no Blind Checks workflow",
+    );
+  });
+});
+
 const laneBot = "github-actions[bot]";
 const lockMarker = "<!-- merge-lane-lock";
 const githubLimit = 65_536;
