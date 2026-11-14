@@ -64,7 +64,7 @@ Editing the settings file, or anything under `.github/workflows/` or `.github/ac
 ## What does not work yet
 
 - Test strength measures Vitest projects only. On a Jest project it says "not measured". Stryker's Jest runner needs its own way to narrow the run to the chosen tests, and presets such as `jest-expo` need their test environment wrapped by Stryker; neither has been built or tried.
-- Tried on one more project so far: a private npm and Vitest repo, set up with `setup`. The lane bot labeled and locked a pull request, Blind Checks installed, ran, judged it proven, and the lane bot ran again after it. Test strength said not measured there, since that project has no Stryker; a real strength measurement has only run in t3code.
+- Tried on two more projects so far, both private npm repos set up with `setup`: one with Vitest, and an Expo app with Jest 30 and the `jest-expo` preset. On each, the lane bot labeled and locked a pull request, Blind Checks installed, ran, judged it proven, and the lane bot ran again after it. On the Expo app the whole proof job took about 2 minutes, most of it two `npm ci` runs. Test strength said not measured on both (no Stryker, and Jest); a real strength measurement has only run in t3code.
 - `setup --protect` has only been refused (a private repo on the free plan). Creating the ruleset has not been tried on a real repo.
 - Browser tests are not run by test strength, and nothing sets up browsers for you. Put that in your install command.
 - The tool repo must stay public: the workflows fetch it without a token.
