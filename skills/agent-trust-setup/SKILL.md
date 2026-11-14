@@ -5,7 +5,7 @@ description: Set up, check or remove agent-trust (merge lane labels and Blind Ch
 
 # Set up agent-trust on a project
 
-agent-trust labels each pull request `lane:green`, `lane:amber` or `lane:red`, and on JavaScript or TypeScript projects that test with Vitest it proves that the tests in a pull request's first commit fail without the code and pass with it. It only reports until the owner switches it on.
+agent-trust labels each pull request `lane:green`, `lane:amber` or `lane:red`, and on JavaScript or TypeScript projects that test with Vitest or Jest it proves that the tests in a pull request's first commit fail without the code and pass with it. It only reports until the owner switches it on.
 
 ## When to use
 
@@ -29,13 +29,14 @@ Do not use it to switch the bots on (`BLIND_CHECKS_MODE`, `TEST_STRENGTH_MODE`).
    npx -y github:Amartuvshins0404/agent-trust#v0 setup
    ```
 
-   It writes `.github/workflows/merge-lane.yml`, and `.github/workflows/blind-checks.yml` when the project tests with Vitest. It writes `.github/agent-trust.json` only when the defaults (`npm ci`, `npx vitest run`) are wrong for the project. It makes the labels. It does not commit, push or open a pull request. Read what it prints.
+   It writes `.github/workflows/merge-lane.yml`, and `.github/workflows/blind-checks.yml` when the project tests with Vitest or Jest. It writes `.github/agent-trust.json` only when the defaults (Vitest, `npm ci`, `npx vitest run`) are wrong for the project, as with Jest, pnpm or Yarn. It makes the labels. It does not commit, push or open a pull request. Read what it prints.
 
 3. If it stops because a workflow with one of the two names already exists and is not agent-trust's, tell the owner. Do not rename or delete their workflow yourself.
 
 4. Check the settings, when Blind Checks was added. Open `.github/agent-trust.json`, or read the printed commands if no file was written:
    - `install` must install everything the tests need on a clean Linux machine, from the lockfile. Add browser or system setup here if the tests need it.
-   - `test` must run Vitest once, not in watch mode, so that report flags and test file paths can be appended to it. A command that runs other tools after Vitest (`vitest run && tsc`) is wrong here.
+   - `runner` is `jest` for a Jest project, including one with a preset such as `jest-expo` or `ts-jest`.
+   - `test` must run the test runner once, not in watch mode, so that report flags and test file paths can be appended to it. A command that runs other tools after it (`vitest run && tsc`) is wrong here.
    - `node` defaults to `24`. Set it if the project needs another version.
    - Try the commands locally: run `install`, then `test` with one test file after it.
 
@@ -65,7 +66,7 @@ It deletes the two caller files when they call agent-trust, the settings file, a
 ## Honest limits
 
 - A private repo on GitHub's free plan cannot require checks. `--protect` says so and changes nothing; the labels still work.
-- A project with no tests, with Jest or another runner, with bun, or that is not JavaScript or TypeScript, gets lane labels only. Its amber pull requests still need a checks commit or an empty `Blind-checks: none, <reason>` first commit, or they turn red.
+- A project with no tests, with a runner other than Vitest or Jest, with bun, or that is not JavaScript or TypeScript, gets lane labels only. Its amber pull requests still need a checks commit or an empty `Blind-checks: none, <reason>` first commit, or they turn red.
 - The lane bot first judges the pull request after the one that adds it, because it runs from the default branch.
-- Test strength says "not measured" until `@stryker-mutator/core` and `@stryker-mutator/vitest-runner` are dev dependencies.
+- Test strength says "not measured" on a Jest project, and on a Vitest project until `@stryker-mutator/core` and `@stryker-mutator/vitest-runner` are dev dependencies.
 - The callers pin `@v0`, a tag the agent-trust owner can move. Pin a full commit SHA for a judge nobody else can move.
