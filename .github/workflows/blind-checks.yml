@@ -1,29 +1,39 @@
 name: Blind Checks
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
-    branches: [amaraa-mode]
+  workflow_call:
 
 permissions:
   contents: read
 
-concurrency:
-  group: blind-checks-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   proof:
     name: Blind checks
-    if: github.repository == 'Amartuvshins0404/t3code'
-    runs-on: ${{ github.repository == 'pingdotgg/t3code' && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 27
+    concurrency:
+      group: blind-checks-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     env:
       BASE_REF: ${{ github.event.pull_request.base.ref }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       BLIND_CHECKS_MODE: ${{ vars.BLIND_CHECKS_MODE }}
     steps:
-      - name: Fetch the pull request commits and the judge from the base branch
+      - name: Fetch agent-trust at the commit this workflow runs from
+        shell: bash
+        env:
+          TOOL_REPOSITORY: ${{ job.workflow_repository }}
+          TOOL_SHA: ${{ job.workflow_sha }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          tool="$RUNNER_TEMP/agent-trust"
+          git init -q "$tool"
+          git -C "$tool" fetch -q --no-tags --depth=1 "${GITHUB_SERVER_URL}/${TOOL_REPOSITORY}.git" "$TOOL_SHA"
+          git -C "$tool" checkout -q --detach FETCH_HEAD
+
+      - name: Fetch the pull request commits and the settings from the base branch
         id: fetch
         shell: bash
         env:
@@ -36,9 +46,10 @@ jobs:
           tip="$(git rev-parse refs/remotes/origin/base)"
           base="$(git merge-base "$tip" "$HEAD_SHA")"
           first="$(git rev-list --reverse --first-parent "$base..$HEAD_SHA" | sed -n 1p)"
-          git sparse-checkout set --no-cone '/*' '!/.repos/'
-          mkdir -p "$RUNNER_TEMP/judge" "$RUNNER_TEMP/proof"
-          git archive "$tip" .github/scripts | tar -x -C "$RUNNER_TEMP/judge"
+          mkdir -p "$RUNNER_TEMP/proof"
+          if git cat-file -e "$tip:.github/agent-trust.json" 2>/dev/null; then
+            git show "$tip:.github/agent-trust.json" > "$RUNNER_TEMP/settings.json"
+          fi
           echo "base=$base" >> "$GITHUB_OUTPUT"
           echo "first=$first" >> "$GITHUB_OUTPUT"
 
@@ -47,16 +58,11 @@ jobs:
         shell: bash
         env:
           PROOF_BASE: ${{ steps.fetch.outputs.base }}
-          FIRST_SHA: ${{ steps.fetch.outputs.first }}
         run: |
           set -euo pipefail
-          judge="$RUNNER_TEMP/judge/.github/scripts/blind-checks.cjs"
-          if [[ ! -f "$judge" ]]; then
-            printf '### Blind checks: skipped\n\nThe base branch has no blind-checks judge yet.\n' >> "$GITHUB_STEP_SUMMARY"
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          node "$judge" plan --base "$PROOF_BASE" --head "$HEAD_SHA" --commit "$FIRST_SHA" --dir "$RUNNER_TEMP/proof"
+          node "$RUNNER_TEMP/agent-trust/lib/blind-checks.cjs" plan --base "$PROOF_BASE" --head "$HEAD_SHA" \
+            --dir "$RUNNER_TEMP/proof" --settings "$RUNNER_TEMP/settings.json" \
+            --pr-base "$BASE_REF" --default-branch "$DEFAULT_BRANCH"
 
       - name: Check out the base code
         if: steps.plan.outputs.run == 'true'
@@ -64,30 +70,26 @@ jobs:
           PROOF_BASE: ${{ steps.fetch.outputs.base }}
         run: git checkout -q --detach "$PROOF_BASE"
 
-      - name: Setup Vite+
+      - name: Set up Node
         if: steps.plan.outputs.run == 'true'
-        uses: ./.github/actions/setup-ci-deps
+        uses: actions/setup-node@v5
         with:
-          save-pnpm-store: "false"
+          node-version: ${{ steps.plan.outputs.node }}
 
-      - name: Install Chromium for browser tests
-        if: steps.plan.outputs.run == 'true' && steps.plan.outputs.browser == 'true'
-        run: |
-          node apps/web/node_modules/playwright/cli.js install --only-shell chromium
-          node apps/web/node_modules/playwright/cli.js install-deps chromium
-
-      - name: Ensure Electron runtime is installed
-        if: steps.plan.outputs.run == 'true' && steps.plan.outputs.desktop == 'true'
-        run: vp run --filter @t3tools/desktop ensure:electron
+      - name: Install on the base code
+        if: steps.plan.outputs.run == 'true'
+        shell: bash
+        env:
+          INSTALL: ${{ steps.plan.outputs.install }}
+        run: bash -euo pipefail -c "$INSTALL"
 
       - name: Run the old checks on the base code
         if: steps.plan.outputs.run == 'true'
         timeout-minutes: 5
         shell: bash
         run: |
-          [[ -s "$RUNNER_TEMP/proof/base-files.txt" ]] || exit 0
-          mapfile -t files < "$RUNNER_TEMP/proof/base-files.txt"
-          vp test run --reporter=json --outputFile="$RUNNER_TEMP/proof/baseline.json" "${files[@]}" || true
+          node "$RUNNER_TEMP/agent-trust/lib/blind-checks.cjs" test --settings "$RUNNER_TEMP/settings.json" \
+            --files "$RUNNER_TEMP/proof/base-files.txt" --out "$RUNNER_TEMP/proof/baseline.json"
 
       - name: Bring in the checks from the head
         if: steps.plan.outputs.run == 'true'
@@ -101,8 +103,8 @@ jobs:
         timeout-minutes: 5
         shell: bash
         run: |
-          mapfile -t files < "$RUNNER_TEMP/proof/files.txt"
-          vp test run --reporter=json --outputFile="$RUNNER_TEMP/proof/before.json" "${files[@]}" || true
+          node "$RUNNER_TEMP/agent-trust/lib/blind-checks.cjs" test --settings "$RUNNER_TEMP/settings.json" \
+            --files "$RUNNER_TEMP/proof/files.txt" --out "$RUNNER_TEMP/proof/before.json"
 
       - name: Check out the pull request head
         if: steps.plan.outputs.run == 'true'
@@ -116,19 +118,25 @@ jobs:
             echo "$changed"
             exit 1
           fi
-          vp install
+
+      - name: Install on the pull request head
+        if: steps.plan.outputs.run == 'true'
+        shell: bash
+        env:
+          INSTALL: ${{ steps.plan.outputs.install }}
+        run: bash -euo pipefail -c "$INSTALL"
 
       - name: Run the checks with the code
         if: steps.plan.outputs.run == 'true'
         timeout-minutes: 5
         shell: bash
         run: |
-          mapfile -t files < "$RUNNER_TEMP/proof/files.txt"
-          vp test run --reporter=json --outputFile="$RUNNER_TEMP/proof/after.json" "${files[@]}" || true
+          node "$RUNNER_TEMP/agent-trust/lib/blind-checks.cjs" test --settings "$RUNNER_TEMP/settings.json" \
+            --files "$RUNNER_TEMP/proof/files.txt" --out "$RUNNER_TEMP/proof/after.json"
 
       - name: Judge
         if: steps.plan.outputs.run == 'true'
-        run: node "$RUNNER_TEMP/judge/.github/scripts/blind-checks.cjs" judge --dir "$RUNNER_TEMP/proof"
+        run: node "$RUNNER_TEMP/agent-trust/lib/blind-checks.cjs" judge --dir "$RUNNER_TEMP/proof"
 
       - name: Measure test strength
         id: strength
@@ -141,12 +149,8 @@ jobs:
           FIRST_SHA: ${{ steps.fetch.outputs.first }}
           TEST_STRENGTH_MODE: ${{ vars.TEST_STRENGTH_MODE }}
         run: |
-          runner="$RUNNER_TEMP/judge/.github/scripts/test-strength.cjs"
-          if [[ ! -f "$runner" ]]; then
-            printf '### Test strength: skipped\n\nThe base branch has no test-strength check yet.\n' >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          node "$runner" measure --first "$FIRST_SHA" --base "$PROOF_BASE" --head "$HEAD_SHA" --out "$RUNNER_TEMP/strength"
+          node "$RUNNER_TEMP/agent-trust/lib/test-strength.cjs" measure --settings "$RUNNER_TEMP/settings.json" \
+            --first "$FIRST_SHA" --base "$PROOF_BASE" --head "$HEAD_SHA" --out "$RUNNER_TEMP/strength"
 
       - name: Upload the test strength measurement
         if: always() && steps.strength.outcome != 'skipped'

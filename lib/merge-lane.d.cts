@@ -1,3 +1,5 @@
+import type { PathRule, Settings } from "./settings.cjs";
+
 export type Lane = "green" | "amber" | "red";
 
 export interface ChangedFile {
@@ -93,10 +95,22 @@ export const TEST_FILE: RegExp;
 export const TEST_SUPPORT: ReadonlyArray<RegExp>;
 export const FIX_TITLE: RegExp;
 
+export interface Judging {
+  readonly settings?: Settings;
+  readonly settingsError?: string | null;
+  readonly packageDirs?: ReadonlyArray<string>;
+}
+
 export function classify(
   files: ReadonlyArray<ChangedFile>,
-  options?: { readonly packageDirs?: ReadonlyArray<string>; readonly fileListComplete?: boolean },
+  options?: Judging & { readonly fileListComplete?: boolean },
 ): LaneResult;
+
+export function pathRulesFor(
+  file: string,
+  settings: Settings,
+  packageDirs?: ReadonlyArray<string>,
+): ReadonlyArray<PathRule>;
 
 export function checkOutcome(input: {
   readonly result: LaneResult;
@@ -165,6 +179,7 @@ interface LaneSummary {
 }
 
 export function syncPullRequest(input: {
+  readonly root?: string;
   readonly github: {
     readonly rest: {
       readonly pulls: Readonly<Record<"get" | "list" | "listFiles", GithubCall>>;

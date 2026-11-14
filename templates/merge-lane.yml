@@ -1,0 +1,19 @@
+name: Merge Lane
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+  workflow_run:
+    workflows: [Blind Checks]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  lane:
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: write
+    uses: Amartuvshins0404/agent-trust/.github/workflows/merge-lane.yml@v0

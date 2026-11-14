@@ -10,6 +10,7 @@ export type StrengthReason =
   | "tests-failed"
   | "no-breaks"
   | "out-of-time"
+  | "no-stryker"
   | "pending"
   | "missing";
 
@@ -107,6 +108,7 @@ export function judgeStrength(input: {
   readonly testsPassed?: boolean;
   readonly reports?: ReadonlyArray<StrykerReport>;
   readonly outOfTime?: { readonly tried: number; readonly total: number };
+  readonly noStryker?: boolean;
 }): StrengthVerdict;
 
 export function renderStrength(
