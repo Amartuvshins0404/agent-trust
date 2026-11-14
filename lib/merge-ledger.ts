@@ -4,6 +4,7 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import * as NodeReadline from "node:readline";
 
+import { settingsAt, type Settings } from "./settings.cjs";
 import { readWorkspace } from "./workspace.cjs";
 import {
   checksMarker,
@@ -19,9 +20,9 @@ import {
 } from "./merge-lane.cjs";
 
 const HELP = `Usage:
-  vp run report:merge-ledger [--branch <ref>] [--since <date>] [--until <date>]
-                             [--window <days>] [--repo <owner/name>] [--score <labels.json>]
-                             [--out <dir>] [--json]
+  node lib/merge-ledger.ts [--cwd <repo>] [--branch <ref>] [--since <date>] [--until <date>]
+                           [--window <days>] [--repo <owner/name>] [--score <labels.json>]
+                           [--out <dir>] [--json]
 
 Lists the changes merged to --branch (default HEAD) between --since (default
 "30 days ago") and --until (default now), each with its lane, area, size and
@@ -55,7 +56,7 @@ const CONFIDENCE = [
   "Most of the escapes listed below are wrong, and the ledger counts about 1.6 times as many recent repairs as hand reading did (13 against 8).",
   "By hand, 15 of 120 upstream fixes (12.5%) repaired a recent change.",
   "These counts are small: read a rate as rough, and a gap between two rows as real only when it is large and both rows have many mature merges.",
-  "Rerun the check with --score after changing a rule; see docs/operations/merge-lanes.md.",
+  "Rerun the check with --score after changing a rule; see docs/merge-lanes.md in agent-trust.",
 ].join(" ");
 const NOT_CODE = /^\s*$|^\s*(\/\/|\/\*|\*\/|\*(\s|$)|#(\s|$)|<!--|\{\/\*)/;
 
@@ -66,6 +67,7 @@ export interface LedgerOptions {
   readonly until?: string;
   readonly windowDays?: number;
   readonly packageDirs?: ReadonlyArray<string>;
+  readonly settings?: Settings;
   readonly pullRequests?: ReadonlyMap<string, PullRequestInfo>;
 }
 
@@ -352,7 +354,10 @@ async function readChanges(options: Required<LedgerOptions>) {
     const body = (isMerge ? rest.slice(titleIndex + 1) : rest).join("\n");
     const files = parseGitDiff(diff.join("\n"));
     const info = options.pullRequests?.get(sha);
-    const judged = classify(files, { packageDirs: [...options.packageDirs] });
+    const judged = classify(files, {
+      settings: options.settings,
+      packageDirs: [...options.packageDirs],
+    });
     const kind = commitKind(subject);
     const commitTime = Number(time);
     raws.push({
@@ -516,7 +521,8 @@ export async function buildLedger(input: LedgerOptions): Promise<Ledger> {
     since: "30 days ago",
     until: "now",
     windowDays: 14,
-    packageDirs: readWorkspace().map((pkg) => pkg.dir),
+    packageDirs: readWorkspace(input.cwd).map((pkg) => pkg.dir),
+    settings: settingsAt(input.cwd).settings,
     pullRequests: new Map<string, PullRequestInfo>(),
     ...input,
   };
@@ -866,7 +872,7 @@ if (import.meta.main) {
     const index = args.indexOf(name);
     return index === -1 ? undefined : args[index + 1];
   };
-  const cwd = flag("--cwd") ?? NodePath.resolve(import.meta.dirname, "..");
+  const cwd = flag("--cwd") ?? process.cwd();
   const branch = flag("--branch") ?? "HEAD";
   const repo = flag("--repo");
   const ledger = await buildLedger({

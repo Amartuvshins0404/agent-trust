@@ -7,6 +7,7 @@ import * as Schema from "effect/Schema";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { judge, type TestResult } from "../lib/blind-checks.cjs";
+import { parseSettings } from "../lib/settings.cjs";
 import {
   LANES,
   checkOutcome,
@@ -40,55 +41,20 @@ import {
   type StrengthVerdict,
 } from "../lib/test-strength.cjs";
 import { render as renderSizeComment } from "../lib/test-delta.cjs";
+import t3codePackageDirs from "./fixtures/t3code/package-dirs.json" with { type: "json" };
 
-const packageDirs = [
-  "apps/desktop",
-  "apps/marketing",
-  "apps/mobile",
-  "apps/server",
-  "apps/web",
-  "evals",
-  "infra/auth",
-  "infra/relay",
-  "infra/task-cache",
-  "oxlint-plugin-t3code",
-  "packages/client-runtime",
-  "packages/contracts",
-  "packages/effect-acp",
-  "packages/effect-codex-app-server",
-  "packages/provider-acp-registry",
-  "packages/provider-acp",
-  "packages/provider-core",
-  "packages/provider-cursor",
-  "packages/provider-fx",
-  "packages/provider-grok",
-  "packages/provider-kiro",
-  "packages/provider-muse",
-  "packages/provider-opencode",
-  "packages/provider-pi",
-  "packages/provider-testing",
-  "packages/secret-provider-core",
-  "packages/secret-provider-definitions",
-  "packages/secret-provider-onepassword",
-  "packages/shared",
-  "packages/source-control-azure-devops",
-  "packages/source-control-bitbucket",
-  "packages/source-control-core",
-  "packages/source-control-cursor-origin",
-  "packages/source-control-definitions",
-  "packages/source-control-forgejo",
-  "packages/source-control-gitcafe",
-  "packages/source-control-github",
-  "packages/source-control-gitlab",
-  "packages/source-control-testing",
-  "packages/ssh",
-  "packages/tailscale",
-  "scripts",
-];
+const packageDirs: ReadonlyArray<string> = t3codePackageDirs;
 
-const startDir = process.cwd();
+const t3codeSettings = NodeFS.readFileSync(
+  new URL("../examples/t3code/agent-trust.json", import.meta.url),
+  "utf8",
+);
+const t3code = { settings: parseSettings(t3codeSettings), packageDirs };
+
 const workspace = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "merge-lane-workspace-"));
 beforeAll(() => {
+  NodeFS.mkdirSync(NodePath.join(workspace, ".github"));
+  NodeFS.writeFileSync(NodePath.join(workspace, ".github", "agent-trust.json"), t3codeSettings);
   NodeFS.writeFileSync(
     NodePath.join(workspace, "pnpm-workspace.yaml"),
     `packages:\n${packageDirs.map((dir) => `  - ${dir}\n`).join("")}`,
@@ -97,10 +63,8 @@ beforeAll(() => {
     NodeFS.mkdirSync(NodePath.join(workspace, dir), { recursive: true });
     NodeFS.writeFileSync(NodePath.join(workspace, dir, "package.json"), `{"name":"${dir}"}\n`);
   }
-  process.chdir(workspace);
 });
 afterAll(() => {
-  process.chdir(startDir);
   NodeFS.rmSync(workspace, { recursive: true, force: true });
 });
 
@@ -330,7 +294,7 @@ const cases: ReadonlyArray<{
 
 describe("merge lane", () => {
   it.each(cases)("$name -> $lane", ({ diff, lane, rules }) => {
-    const result = classify(parseGitDiff(diff), { packageDirs });
+    const result = classify(parseGitDiff(diff), t3code);
     expect(result.lane).toBe(lane);
     expect(
       result.reasons.filter((reason) => reason.lane === lane).map((reason) => reason.rule),
@@ -343,7 +307,7 @@ describe("merge lane", () => {
         `${webFixSource}\n${modified("packages/contracts/src/relay.ts", "@@ -1,0 +1,1 @@\n+export {};")}`,
       ),
       {
-        packageDirs,
+        ...t3code,
       },
     );
     expect(result.reasons[0]).toMatchObject({
@@ -367,15 +331,15 @@ describe("merge lane", () => {
       status: "modified",
       changes: 4000,
     };
-    expect(classify([image], { packageDirs }).lane).toBe("amber");
+    expect(classify([image], t3code).lane).toBe("amber");
     expect(
-      classify([image, tooLarge], { packageDirs }).reasons.map((reason) => reason.rule),
+      classify([image, tooLarge], t3code).reasons.map((reason) => reason.rule),
     ).toContain("unreadable-diff");
   });
 
   it("is red when GitHub listed only part of the changed files", () => {
     const files = parseGitDiff(modified("docs/user/install.md", "@@ -1,1 +1,1 @@\n-a\n+b"));
-    expect(classify(files, { packageDirs, fileListComplete: false }).lane).toBe("red");
+    expect(classify(files, { ...t3code, fileListComplete: false }).lane).toBe("red");
   });
 
   it("reads renames and binary files from git output", () => {
@@ -405,7 +369,7 @@ describe("merge lane", () => {
       },
       { filename: "assets/logo.png", binary: true, patch: null },
     ]);
-    expect(classify(files, { packageDirs }).lane).toBe("amber");
+    expect(classify(files, t3code).lane).toBe("amber");
   });
 });
 
@@ -1028,7 +992,7 @@ const reasonsFrom: Record<SourceName, ReadonlyArray<LaneReason>> = {
         "@@ -0,0 +1,1 @@\n+export {};",
       ),
     ),
-    { packageDirs },
+    t3code,
   ).reasons,
   content: classify(
     parseGitDiff(
@@ -1037,7 +1001,7 @@ const reasonsFrom: Record<SourceName, ReadonlyArray<LaneReason>> = {
         '@@ -0,0 +1,2 @@\n+// @effect-diagnostics nodeBuiltinImport:off\n+import * as NodePath from "node:path";',
       ),
     ),
-    { packageDirs },
+    t3code,
   ).reasons,
   checks: judgeChecks({ ...checked, prFiles: [editedSlugTest, slugSource] }).reasons,
   repairs: judgeRepairs({
@@ -1046,9 +1010,9 @@ const reasonsFrom: Record<SourceName, ReadonlyArray<LaneReason>> = {
     resolved: [],
   }),
   strength: strengthReasons(weakStrength, { required: true }),
-  amber: classify(parseGitDiff(webFixSource), { packageDirs }).reasons,
+  amber: classify(parseGitDiff(webFixSource), t3code).reasons,
   green: classify(parseGitDiff(modified("docs/user/slugs.md", "@@ -1,1 +1,1 @@\n-Old\n+New")), {
-    packageDirs,
+    ...t3code,
   }).reasons,
 };
 const laneFrom = (sources: ReadonlyArray<SourceName>): LaneResult => {
@@ -2085,6 +2049,7 @@ describe("the Merge lane job fails the check only for a red lane on the pull req
       const pr = lanePullRequest(row.listed);
       const failed: Array<string> = [];
       const result = await syncPullRequest({
+        root: workspace,
         github: laneGithub(pr, row.commits, row.firstFiles, row.listed),
         context: laneContext(row.event, pr),
         core: laneCore(failed),
@@ -2143,6 +2108,7 @@ const syncWithComments = async (
   const pr = lanePullRequest(listed);
   const writes: Array<CommentWrite> = [];
   const result = await syncPullRequest({
+        root: workspace,
     github: laneGithub(pr, commits, firstFiles, listed, editedComments, writes),
     context: laneContext("pull_request_target", pr),
     core: laneCore([]),
@@ -2320,6 +2286,7 @@ describe("the lane bot keeps one comment and one lock after a web edit", () => {
       body: renderBotComment({ previous: null, checks: greenChecks, strength: firstStrength }),
     };
     const behind = await syncPullRequest({
+        root: workspace,
       github: laneGithub(
         pr,
         [rebased, code],

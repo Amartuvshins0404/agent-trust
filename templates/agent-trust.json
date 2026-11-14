@@ -1,0 +1,113 @@
+{
+  "baseBranch": "main",
+  "node": "24",
+  "install": "npm ci",
+  "test": "npx vitest run",
+  "runner": "vitest",
+  "allowedSuppressions": [],
+  "rules": [
+    {
+      "id": "ci",
+      "lane": "red",
+      "why": "Changes CI or release configuration",
+      "paths": [
+        ".github/**",
+        ".gitlab-ci.yml",
+        ".circleci/**",
+        ".buildkite/**",
+        "azure-pipelines.yml",
+        "Jenkinsfile"
+      ]
+    },
+    {
+      "id": "dependencies",
+      "lane": "red",
+      "why": "Changes dependencies, package manifests or lockfiles",
+      "paths": [
+        "**/package.json",
+        "**/{package-lock.json,npm-shrinkwrap.json,yarn.lock,pnpm-lock.yaml,bun.lock,bun.lockb}",
+        "pnpm-workspace.yaml",
+        "**/{.npmrc,.yarnrc,.yarnrc.yml,.pnpmfile.cjs}",
+        ".yarn/**",
+        "patches/**"
+      ]
+    },
+    {
+      "id": "migrations",
+      "lane": "red",
+      "why": "Changes the database schema or its migrations",
+      "paths": [
+        "**/migrations/**",
+        "**/*.sql",
+        "**/*.prisma"
+      ]
+    },
+    {
+      "id": "auth",
+      "lane": "red",
+      "why": "Changes sign-in, permissions, access control or secrets",
+      "paths": [
+        "/(^|\\/)[^/]*(auth(?!or)|login|signin|sign-in|permission|credential|secret|passkey|password|rbac)[^/]*(\\/|$)/i",
+        "**/.env",
+        "**/.env.*"
+      ]
+    },
+    {
+      "id": "build-config",
+      "lane": "red",
+      "why": "Changes build, compiler or container configuration",
+      "paths": [
+        "**/{tsconfig,jsconfig}*.json",
+        "**/{vite,webpack,rollup,esbuild,babel,swc,next,nuxt,astro,svelte,turbo,metro,tsup}.config.*",
+        "**/{.babelrc,.babelrc.*,.swcrc,.browserslistrc,turbo.json,nx.json}",
+        "**/Dockerfile*",
+        "**/{docker-compose,compose}*.{yml,yaml}",
+        ".gitattributes",
+        ".gitignore"
+      ]
+    },
+    {
+      "id": "gates",
+      "lane": "red",
+      "why": "Changes a lint, format, type-check or test gate",
+      "paths": [
+        "**/{vitest,jest,playwright,cypress,stryker}*.config.*",
+        "**/{vitest,jest}.setup.*",
+        "**/setupTests.*",
+        "**/{.eslintrc,.eslintrc.*,eslint.config.*,.oxlintrc*,oxlint*.json,biome.json,biome.jsonc}",
+        "**/{.prettierrc,.prettierrc.*,prettier.config.*,.stylelintrc*,knip.json,knip.jsonc}",
+        "**/{.lintstagedrc*,lint-staged.config.*,.nycrc*,.c8rc*}",
+        ".husky/**",
+        "lefthook.{yml,yaml}"
+      ]
+    },
+    {
+      "id": "model-text",
+      "lane": "red",
+      "why": "Changes text that AI models read (agent instructions, prompts)",
+      "paths": [
+        "**/{AGENTS,CLAUDE,GEMINI}.md",
+        ".{agents,claude,cursor}/**"
+      ]
+    },
+    {
+      "id": "code",
+      "lane": "amber",
+      "why": "Ordinary code",
+      "paths": [
+        "**/*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,vue,svelte,astro,css,scss,sass,less,html}",
+        "**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf,otf}"
+      ]
+    },
+    {
+      "id": "docs",
+      "lane": "green",
+      "why": "Documentation only",
+      "paths": [
+        "docs/**",
+        "**/*.{md,mdx}",
+        "LICENSE*"
+      ]
+    }
+  ]
+}
