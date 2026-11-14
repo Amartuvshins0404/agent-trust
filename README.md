@@ -64,7 +64,8 @@ Editing the settings file, or anything under `.github/workflows/` or `.github/ac
 ## What does not work yet
 
 - Only Vitest. Jest is the next step: one more entry in [lib/runners.cjs](lib/runners.cjs).
-- Not tried on a second project yet. The lane bot's reusable workflow has not run on a real pull request outside the unit tests.
+- Tried on one more project so far: a private npm and Vitest repo, set up with `setup`. The lane bot labeled and locked a pull request, Blind Checks installed, ran, judged it proven, and the lane bot ran again after it. Test strength said not measured there, since that project has no Stryker; a real strength measurement has only run in t3code.
+- `setup --protect` has only been refused (a private repo on the free plan). Creating the ruleset has not been tried on a real repo.
 - Browser tests are not run by test strength, and nothing sets up browsers for you. Put that in your install command.
 - The tool repo must stay public: the workflows fetch it without a token.
 
